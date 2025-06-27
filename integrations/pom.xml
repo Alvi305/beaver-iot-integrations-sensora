@@ -36,10 +36,7 @@
     </licenses>
 
     <modules>
-        <module>sample-integrations</module>
-        <module>ping</module>
         <module>msc-integration</module>
-        <module>ollama-integration</module>
         <module>milesight-gateway</module>
     </modules>
 

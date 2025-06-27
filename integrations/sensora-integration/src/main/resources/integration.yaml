@@ -1,0 +1,5 @@
+integration:
+  sensora-integration:
+    name: Sensora
+    description: "This integration is used to enable sensora backend"
+    enabled: true
