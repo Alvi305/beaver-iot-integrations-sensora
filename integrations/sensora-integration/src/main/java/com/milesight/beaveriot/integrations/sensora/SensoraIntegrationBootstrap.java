@@ -1,4 +1,4 @@
-package com.milesight.beaveriot.integrations;
+package com.milesight.beaveriot.integrations.sensora;
 
 import com.milesight.beaveriot.context.integration.bootstrap.IntegrationBootstrap;
 import com.milesight.beaveriot.context.integration.model.Integration;
