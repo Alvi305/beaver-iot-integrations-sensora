@@ -30,7 +30,7 @@ public class SensoraDeviceService {
     @Autowired
     private EntityValueServiceProvider entityValueServiceProvider;
 
-    public static final String INTEGRATION_ID = "sensora";
+    public static final String INTEGRATION_ID = "sensora-integration";
 
     @Getter
     private static SensoraIntegrationEntities.DetectReport latestReport;
@@ -54,7 +54,40 @@ public class SensoraDeviceService {
                 .entities(() -> new AnnotatedTemplateEntityBuilder(INTEGRATION_ID, deviceIdentifier).build(DeviceEntity.class))
                 .build();
 
-        deviceServiceProvider.save(device);
+        try {
+            deviceServiceProvider.save(device);
+            log.info("Added device: {} with identifier: {}", deviceName, deviceIdentifier);
+        } catch (Exception e) {
+            log.error("Failed to save device: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    public Device saveDevice(SensoraIntegrationEntities.AddDevice addDevice) {
+        String deviceName = addDevice.getName();
+        String ip = addDevice.getIp();
+        String sn = addDevice.getSn();
+
+        String deviceIdentifier = ip.replace(".", "_") + "-" + sn.replace(".", "_");
+
+        Map<String, Object> additionalProperties = new HashMap<>();
+        additionalProperties.put("sn", sn);
+
+        Device device = new DeviceBuilder(INTEGRATION_ID)
+                .name(deviceName)
+                .identifier(deviceIdentifier)
+                .additional(additionalProperties)
+                .entities(() -> new AnnotatedTemplateEntityBuilder(INTEGRATION_ID, deviceIdentifier).build(DeviceEntity.class))
+                .build();
+
+        try {
+            deviceServiceProvider.save(device);
+            log.info("Added device: {} with identifier: {}", deviceName, deviceIdentifier);
+            return device;
+        } catch (Exception e) {
+            log.error("Failed to save device: {}", e.getMessage());
+            throw e;
+        }
     }
 
     @EventSubscribe(payloadKeyExpression = INTEGRATION_ID + ".integration.delete_device", eventType = ExchangeEvent.EventType.CALL_SERVICE)

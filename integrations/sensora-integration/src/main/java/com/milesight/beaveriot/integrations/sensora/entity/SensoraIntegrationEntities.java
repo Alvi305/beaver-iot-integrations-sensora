@@ -11,6 +11,10 @@ import com.milesight.beaveriot.context.integration.model.ExchangePayload;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.Map;
+
+import static com.milesight.beaveriot.integrations.sensora.service.SensoraDeviceService.INTEGRATION_ID;
+
 @Data
 @EqualsAndHashCode(callSuper = true)
 @IntegrationEntities
@@ -30,6 +34,7 @@ public class SensoraIntegrationEntities extends  ExchangePayload {
     @Entity(type = EntityType.SERVICE, identifier = "delete_device", visible = false)
     private DeleteDevice deleteDevice;
 
+
     @Data
     @EqualsAndHashCode(callSuper = true)
     @Entities
@@ -48,11 +53,25 @@ public class SensoraIntegrationEntities extends  ExchangePayload {
     @EqualsAndHashCode(callSuper = true)
     @Entities
     public static class AddDevice extends ExchangePayload implements AddDeviceAware {
-        @Entity
+
+        @Entity(type = EntityType.PROPERTY, name = "Device Name", accessMod = AccessMod.RW)
+        private String name;
+
+        @Entity(type = EntityType.PROPERTY, name = "IP Address", accessMod = AccessMod.RW, attributes = @Attribute(lengthRange = "7,15"))
         private String ip;
-        @Entity(attributes = {@Attribute(lengthRange = "12,16")})
+
+        @Entity(type = EntityType.PROPERTY, name = "Serial Number", accessMod = AccessMod.RW, attributes = @Attribute(lengthRange = "12,16"))
         private String sn;
 
+        public AddDevice(Map<String, Object> payload) {
+            this.name = (String) payload.get("name");
+            if (payload.get("param_entities") instanceof Map) {
+                Map<String, Object> paramEntities = (Map<String, Object>) payload.get("param_entities");
+                this.ip = (String) paramEntities.get(INTEGRATION_ID + ".integration.add_device.ip");
+                this.sn = (String) paramEntities.get(INTEGRATION_ID + ".integration.add_device.sn");
+            }
+
+        }
     }
 
     @Data
