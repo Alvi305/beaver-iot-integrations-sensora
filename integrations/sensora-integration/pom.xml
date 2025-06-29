@@ -38,6 +38,18 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version> <!-- Use the latest version -->
+                <configuration>
+                    <source>17</source> <!-- Adjust to your Java version -->
+                    <target>17</target> <!-- Adjust to your Java version -->
+                    <compilerArgs>
+                        <arg>-parameters</arg> <!-- Enable parameter name retention -->
+                    </compilerArgs>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -88,6 +89,17 @@ public class SensoraDeviceService {
             log.error("Failed to save device: {}", e.getMessage());
             throw e;
         }
+    }
+
+    public List<Device> searchDevices(String name, String identifier) {
+        List<Device> allDevices = deviceServiceProvider.findAll(INTEGRATION_ID);
+        return allDevices.stream()
+                .filter(device -> {
+                    boolean matchesName = name == null || device.getName().toLowerCase().contains(name.toLowerCase());
+                    boolean matchesIdentifier = identifier == null || device.getIdentifier().toLowerCase().contains(identifier.toLowerCase());
+                    return matchesName && matchesIdentifier;
+                })
+                .collect(Collectors.toList());
     }
 
     @EventSubscribe(payloadKeyExpression = INTEGRATION_ID + ".integration.delete_device", eventType = ExchangeEvent.EventType.CALL_SERVICE)

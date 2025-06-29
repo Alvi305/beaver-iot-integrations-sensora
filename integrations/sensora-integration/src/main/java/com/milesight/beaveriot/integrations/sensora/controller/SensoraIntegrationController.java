@@ -84,6 +84,16 @@ public class SensoraIntegrationController {
         return ResponseEntity.ok(device);
     }
 
+    @GetMapping("/devices")
+    public ResponseEntity<List<Device>> searchDevices(
+            @RequestParam(required = false, name = "name") String name,
+            @RequestParam(required = false, name = "identifier") String identifier) {
+        log.info("Searching devices with name: {}, identifier: {}", name, identifier);
+        List<Device> devices = sensoraDeviceService.searchDevices(name, identifier);
+        log.info("Found {} devices", devices.size());
+        return ResponseEntity.ok(devices);
+    }
+
     @Data
     public  class CountResponse {
         private Long count;
