@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,21 +44,20 @@ public class SensoraDeviceService {
         String ip = event.getPayload().getIp();
         String sn = addDevice.getSn();
 
-        String deviceIdentifier = ip.replace(".", "_") + "-" + sn.replace(".", "_");
 
         Map<String, Object> additionalProperties = new HashMap<>();
-        additionalProperties.put("sn",sn);
+        additionalProperties.put("ip",ip.replace(".", "_"));
 
         Device device = new DeviceBuilder(INTEGRATION_ID)
                 .name(deviceName)
-                .identifier(deviceIdentifier)
+                .identifier(sn)
                 .additional(additionalProperties)
-                .entities(() -> new AnnotatedTemplateEntityBuilder(INTEGRATION_ID, deviceIdentifier).build(DeviceEntity.class))
+                .entities(() -> new AnnotatedTemplateEntityBuilder(INTEGRATION_ID, sn).build(DeviceEntity.class))
                 .build();
 
         try {
             deviceServiceProvider.save(device);
-            log.info("Added device: {} with identifier: {}", deviceName, deviceIdentifier);
+            log.info("Added device: {} with identifier: {}", deviceName, sn);
         } catch (Exception e) {
             log.error("Failed to save device: {}", e.getMessage());
             throw e;
@@ -69,21 +69,18 @@ public class SensoraDeviceService {
         String ip = addDevice.getIp();
         String sn = addDevice.getSn();
 
-        String deviceIdentifier = ip.replace(".", "_") + "-" + sn.replace(".", "_");
-
         Map<String, Object> additionalProperties = new HashMap<>();
-        additionalProperties.put("sn", sn);
+        additionalProperties.put("ip",ip.replace(".", "_"));
 
         Device device = new DeviceBuilder(INTEGRATION_ID)
                 .name(deviceName)
-                .identifier(deviceIdentifier)
+                .identifier(sn)
                 .additional(additionalProperties)
-                .entities(() -> new AnnotatedTemplateEntityBuilder(INTEGRATION_ID, deviceIdentifier).build(DeviceEntity.class))
+                .entities(() -> new AnnotatedTemplateEntityBuilder(INTEGRATION_ID, sn).build(DeviceEntity.class))
                 .build();
-
         try {
             deviceServiceProvider.save(device);
-            log.info("Added device: {} with identifier: {}", deviceName, deviceIdentifier);
+            log.info("Added device: {} with identifier: {}", deviceName, sn);
             return device;
         } catch (Exception e) {
             log.error("Failed to save device: {}", e.getMessage());
@@ -100,6 +97,39 @@ public class SensoraDeviceService {
                     return matchesName && matchesIdentifier;
                 })
                 .collect(Collectors.toList());
+    }
+
+    public void setDeviceStatusOnline(String deviceIdentifier) {
+        try {
+            new AnnotatedTemplateEntityWrapper<DeviceEntity>(deviceIdentifier)
+                    .saveValues(Map.of(
+                            DeviceEntity::getStatus, (long) DeviceEntity.DeviceStatus.ONLINE.ordinal()
+                    ));
+            log.info("Set device with identifier {} to ONLINE status", deviceIdentifier);
+        } catch (Exception e) {
+            log.error("Failed to set device {} status to ONLINE: {}", deviceIdentifier, e.getMessage());
+            throw e;
+        }
+    }
+
+    public Map<String, Object> getDeviceStatus(String deviceIdentifier) {
+        Device device = deviceServiceProvider.findByIdentifier(deviceIdentifier, INTEGRATION_ID);
+        if (device == null) {
+            log.warn("Device with identifier {} not found", deviceIdentifier);
+            return null;
+        }
+
+        if (device.getEntities().isEmpty()) {
+            log.warn("No entities found for device with identifier {}", deviceIdentifier);
+            return Map.of("identifier", deviceIdentifier, "status", "UNKNOWN");
+        }
+
+        Entity entity = device.getEntities().get(0);
+        String entityKey = entity.getKey();
+        log.debug("Fetching status for entity key: {}", entityKey);
+        Long statusValue = (Long) entityValueServiceProvider.findValueByKey(entityKey);
+        String status = statusValue != null ? DeviceEntity.DeviceStatus.values()[(int) (long) statusValue].name() : "UNKNOWN";
+        return Map.of("identifier", deviceIdentifier, "status", status);
     }
 
     @EventSubscribe(payloadKeyExpression = INTEGRATION_ID + ".integration.delete_device", eventType = ExchangeEvent.EventType.CALL_SERVICE)

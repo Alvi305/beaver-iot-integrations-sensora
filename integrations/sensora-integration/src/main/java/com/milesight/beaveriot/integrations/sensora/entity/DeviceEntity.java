@@ -11,8 +11,11 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @DeviceTemplateEntities(name = "Ping Device")
 public class DeviceEntity extends ExchangePayload {
+    @Entity(type = EntityType.PROPERTY, name = "Device Name", accessMod = AccessMod.R, attributes = @Attribute(enumClass = DeviceStatus.class))
+    private String DeviceName;
+
     @Entity(type = EntityType.PROPERTY, name = "Device Connection Status", accessMod = AccessMod.R, attributes = @Attribute(enumClass = DeviceStatus.class))
-    private Long status;
+    private Integer status;
 
     @Entity(type = EntityType.PROPERTY, name = "Device Serial Number", accessMod = AccessMod.R, attributes = @Attribute(enumClass = DeviceStatus.class))
     private String sn;
