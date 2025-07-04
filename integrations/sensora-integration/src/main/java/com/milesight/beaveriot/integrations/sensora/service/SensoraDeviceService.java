@@ -78,6 +78,7 @@ public class SensoraDeviceService {
                 .additional(additionalProperties)
                 .entities(() -> new AnnotatedTemplateEntityBuilder(INTEGRATION_ID, sn).build(DeviceEntity.class))
                 .build();
+
         try {
             deviceServiceProvider.save(device);
             log.info("Added device: {} with identifier: {}", deviceName, sn);
@@ -100,17 +101,39 @@ public class SensoraDeviceService {
     }
 
     public void setDeviceStatusOnline(String deviceIdentifier) {
+
+       Map<String, Object> statusInfo = getDeviceStatus(deviceIdentifier);
+       String currentStatus = (String) statusInfo.get("status") ;
+        String entityKey = statusInfo.containsKey("entityKey") ? (String) statusInfo.get("entityKey") : "N/A";
+       log.debug("Current status for device {} is: {}. Entity key: {}", deviceIdentifier, currentStatus, statusInfo.get("identifier"));
+
+        if ("ONLINE".equalsIgnoreCase(currentStatus)) {
+            log.info("Device with identifier {} is already ONLINE", deviceIdentifier);
+            return;
+        }
+
         try {
-            new AnnotatedTemplateEntityWrapper<DeviceEntity>(deviceIdentifier)
-                    .saveValues(Map.of(
-                            DeviceEntity::getStatus, (long) DeviceEntity.DeviceStatus.ONLINE.ordinal()
-                    ));
-            log.info("Set device with identifier {} to ONLINE status", deviceIdentifier);
+            AnnotatedTemplateEntityWrapper<DeviceEntity> wrapper = new AnnotatedTemplateEntityWrapper<>(deviceIdentifier);
+            log.debug("Attempting to update status for device {}. Using identifier: {}", deviceIdentifier, deviceIdentifier);
+            wrapper.saveValues(Map.of(
+                    DeviceEntity::getStatus, (long) DeviceEntity.DeviceStatus.ONLINE.ordinal()
+            ));
+            // Verify the update by re-fetching the status
+            Map<String, Object> updatedStatusInfo = getDeviceStatus(deviceIdentifier);
+            String updatedStatus = updatedStatusInfo != null && updatedStatusInfo.containsKey("status") ? (String) updatedStatusInfo.get("status") : "UNKNOWN";
+            String updatedEntityKey = updatedStatusInfo != null && updatedStatusInfo.containsKey("entityKey") ? (String) updatedStatusInfo.get("entityKey") : "N/A";
+            log.debug("Verified status for device {} after update: {}. Entity key: {}", deviceIdentifier, updatedStatus, updatedEntityKey);
+            if ("ONLINE".equalsIgnoreCase(updatedStatus)) {
+                log.info("Successfully set device with identifier {} to ONLINE status", deviceIdentifier);
+            } else {
+                log.warn("Failed to verify ONLINE status update for device {}: status is {}. Entity key: {}", deviceIdentifier, updatedStatus, updatedEntityKey);
+            }
         } catch (Exception e) {
-            log.error("Failed to set device {} status to ONLINE: {}", deviceIdentifier, e.getMessage());
+            log.error("Failed to set device {} status to ONLINE: {}. Check identifier and entity setup.", deviceIdentifier, e.getMessage());
             throw e;
         }
     }
+
 
     public Map<String, Object> getDeviceStatus(String deviceIdentifier) {
         Device device = deviceServiceProvider.findByIdentifier(deviceIdentifier, INTEGRATION_ID);
@@ -130,6 +153,18 @@ public class SensoraDeviceService {
         Long statusValue = (Long) entityValueServiceProvider.findValueByKey(entityKey);
         String status = statusValue != null ? DeviceEntity.DeviceStatus.values()[(int) (long) statusValue].name() : "UNKNOWN";
         return Map.of("identifier", deviceIdentifier, "status", status);
+    }
+
+    public Device deleteDeviceByIdentifier(String identifier) {
+        Device device = deviceServiceProvider.findByIdentifier(identifier, INTEGRATION_ID);
+        if (device == null || device.getId() == null) {
+            log.warn("Device with identifier {} not found or has no ID", identifier);
+            return device;
+        }
+
+        deviceServiceProvider.deleteById(device.getId());
+        log.info("Successfully deleted device with ID: {} and identifier: {}", device.getId(), identifier);
+        return device;
     }
 
     @EventSubscribe(payloadKeyExpression = INTEGRATION_ID + ".integration.delete_device", eventType = ExchangeEvent.EventType.CALL_SERVICE)
@@ -154,7 +189,7 @@ public class SensoraDeviceService {
         devices.forEach(device -> {
             boolean isSuccess = false;
             String ip = (String) device.getAdditional().get("ip");
-            String sn = (String) device.getAdditional().get("sn");
+
             try {
                 InetAddress inet = InetAddress.getByName(ip);
                 if (inet.isReachable(timeout)) {
@@ -176,8 +211,7 @@ public class SensoraDeviceService {
             String deviceIdentifier = device.getIdentifier(); // Assuming identifier includes SN
             new AnnotatedTemplateEntityWrapper<DeviceEntity>(deviceIdentifier)
                     .saveValues(Map.of(
-                            DeviceEntity::getStatus, (long) deviceStatus,
-                            DeviceEntity::getSn, sn
+                            DeviceEntity::getStatus, (long) deviceStatus
                     ));
         });
         Long endTimestamp = System.currentTimeMillis();

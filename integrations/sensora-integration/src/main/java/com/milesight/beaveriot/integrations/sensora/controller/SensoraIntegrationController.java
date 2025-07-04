@@ -4,16 +4,12 @@ import com.milesight.beaveriot.base.response.ResponseBody;
 import com.milesight.beaveriot.base.response.ResponseBuilder;
 import com.milesight.beaveriot.context.api.DeviceServiceProvider;
 import com.milesight.beaveriot.context.api.EntityValueServiceProvider;
-import com.milesight.beaveriot.context.integration.model.AnnotatedTemplateEntityBuilder;
 import com.milesight.beaveriot.context.integration.model.Device;
-import com.milesight.beaveriot.context.integration.model.DeviceBuilder;
-import com.milesight.beaveriot.context.integration.model.Entity;
 import com.milesight.beaveriot.context.integration.model.event.ExchangeEvent;
 import com.milesight.beaveriot.eventbus.EventBus;
-import com.milesight.beaveriot.eventbus.api.Event;
-import com.milesight.beaveriot.eventbus.api.IdentityKey;
 import com.milesight.beaveriot.integrations.sensora.entity.DeviceEntity;
 import com.milesight.beaveriot.integrations.sensora.entity.SensoraIntegrationEntities;
+import com.milesight.beaveriot.integrations.sensora.service.LoRaMqttSubscription;
 import com.milesight.beaveriot.integrations.sensora.service.SensoraDeviceService;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +41,10 @@ public class SensoraIntegrationController {
 
     @Autowired
     private EventBus eventBus;
+
+    @Autowired
+    private LoRaMqttSubscription loRaMqttSubscription;
+
 
     @GetMapping("/active-count")
     public ResponseBody<CountResponse> getActiveDeviceCount() {
@@ -98,12 +98,7 @@ public class SensoraIntegrationController {
             deviceInfo.put("additional", device.getAdditional());
             // Fetch status using the service method
             Map<String, Object> statusInfo = sensoraDeviceService.getDeviceStatus(device.getIdentifier());
-            if (statusInfo != null && statusInfo.containsKey("status")) {
-                deviceInfo.put("status", statusInfo.get("status"));
-            } else {
-                deviceInfo.put("status", "UNKNOWN");
-                log.warn("No status found for device with identifier: {}", device.getIdentifier());
-            }
+            deviceInfo.put("status", statusInfo.get("status"));
             return deviceInfo;
         }).collect(Collectors.toList());
         return ResponseEntity.ok(response);
@@ -119,6 +114,31 @@ public class SensoraIntegrationController {
             log.error("Failed to set device status to ONLINE for identifier {}: {}", identifier, e.getMessage());
             return ResponseEntity.status(500).body("Failed to set device status: " + e.getMessage());
         }
+    }
+
+    @DeleteMapping("/devices/{identifier}")
+    public ResponseEntity<String> deleteDevice(@PathVariable String identifier) {
+        Device device = deviceServiceProvider.findByIdentifier(identifier, INTEGRATION_ID);
+        if (device == null || device.getId() == null) {
+            log.warn("Device with identifier {} not found", identifier);
+            return ResponseEntity.status(404).body("Device not found");
+        }
+
+        sensoraDeviceService.deleteDeviceByIdentifier(device.getIdentifier());
+
+        SensoraIntegrationEntities.DeleteDevice deleteDevice = new SensoraIntegrationEntities.DeleteDevice();
+        deleteDevice.setDeletedDevice(device);
+        ExchangeEvent event = new ExchangeEvent(ExchangeEvent.EventType.CALL_SERVICE, deleteDevice);
+        eventBus.publish(event);
+
+
+
+        return ResponseEntity.ok("Deletion request for device with identifier " + identifier + " has been processed");
+    }
+
+    @GetMapping("/sensor-data")
+    public Map<String, Map<String, Object>> getSensorData() {
+        return loRaMqttSubscription.getLatestSensorData();
     }
 
     @Data

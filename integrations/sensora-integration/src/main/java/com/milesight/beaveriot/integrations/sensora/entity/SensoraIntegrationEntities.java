@@ -7,6 +7,7 @@ import com.milesight.beaveriot.context.integration.entity.annotation.Entity;
 import com.milesight.beaveriot.context.integration.entity.annotation.IntegrationEntities;
 import com.milesight.beaveriot.context.integration.enums.AccessMod;
 import com.milesight.beaveriot.context.integration.enums.EntityType;
+import com.milesight.beaveriot.context.integration.model.Device;
 import com.milesight.beaveriot.context.integration.model.ExchangePayload;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -78,6 +79,11 @@ public class SensoraIntegrationEntities extends  ExchangePayload {
     @EqualsAndHashCode(callSuper = true)
     @Entities
     public static class DeleteDevice extends ExchangePayload implements DeleteDeviceAware {
+        private Device deletedDevice;
+
+        public void setDeletedDevice(Device device) {
+            this.deletedDevice = device;
+        }
     }
 
     @Data
